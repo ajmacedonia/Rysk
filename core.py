@@ -50,12 +50,13 @@ class Core:
 
     def load_image(self, name):
         """Loads a pygame image and returns it."""
-        fullname = os.path.join(self.images_dir, name)
+        image = None
         try:
+            fullname = os.path.join(self.images_dir, name)
             image = pygame.image.load(fullname)
-        except pygame.error as err:
-            raise SystemExit(err)
-        # image = image.convert()
+            # image = image.convert()
+        except:
+            print("Failed to load {0}".format(name))
         return image
 
     def load_fonts(self):
