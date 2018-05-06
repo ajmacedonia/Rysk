@@ -51,6 +51,7 @@ class GamestateManager:
         # if the state was recently changed, initialize the new state
         if self._current_state != self._next_state:
             self._current_state = self._next_state
+            self.shutdown = False
         return self._current_state.initialize(core)
         
     def update_state(self):

@@ -4,6 +4,7 @@ import utilities
 from core import Core
 from gsm import GamestateManager
 from gs_play import GSPlay
+from gs_main import GSMain
 
 if __name__ == "__main__":
     clock = pygame.time.Clock()
@@ -14,7 +15,8 @@ if __name__ == "__main__":
 
     gsm = GamestateManager()
     gsm.register_state("GSPlay", GSPlay())
-    gsm.set_next_state("GSPlay")
+    gsm.register_state("GSMain", GSMain())
+    gsm.set_next_state("GSMain")
 
     while core.run:
 
