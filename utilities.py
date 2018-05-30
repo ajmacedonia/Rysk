@@ -1,4 +1,9 @@
-# just some definitions and useful functions
+import os
+import pygame
+
+# FS
+ROOT_DIR = os.path.split(os.path.abspath(__file__))[0]
+IMAGES_DIR = os.path.join(ROOT_DIR, "images")
 
 # colors
 BLACK = (0, 0, 0)
@@ -14,3 +19,18 @@ LIGHT_YELLOW = (255, 255, 0)
 
 # keys
 K_escape = '\x1b'
+
+
+# ================
+# Pygame wrappers
+# ================
+def load_image(name):
+    """Loads a pygame image and returns it."""
+    image = None
+    try:
+        fullname = os.path.join(IMAGES_DIR, name)
+        image = pygame.image.load(fullname)
+        # image = image.convert()
+    except:
+        print("Failed to load {0}".format(fullname))
+    return image

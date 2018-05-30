@@ -16,7 +16,7 @@ if __name__ == "__main__":
     gsm = GamestateManager()
     gsm.register_state("GSPlay", GSPlay())
     gsm.register_state("GSMain", GSMain())
-    gsm.set_next_state("GSMain")
+    gsm.set_next_state("GSPlay")
 
     while core.run:
 
