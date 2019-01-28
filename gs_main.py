@@ -47,7 +47,7 @@ class GSMain(Gamestate):
 
     def draw(self, display):
         # draw background
-        display.blit(self.text_surface, self.text_rect)
+        display.blit(self.background, (0, 0))
 
         # draw buttons
         display.blit(self.text_surface, self.text_rect)
