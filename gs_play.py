@@ -125,6 +125,8 @@ class GSPlay(Gamestate):
                     self.country = pygame.transform.scale(self.country,
                                                           (self.core.display_width,
                                                            self.core.display_height))
+                    # for some reason the highlights are rendered too far right, this is a hack to render them over the territory
+                    self.country.scroll(-100, 0)
 
             # slide player card when clicked
             for player in self.players:
