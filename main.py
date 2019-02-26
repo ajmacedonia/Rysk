@@ -10,6 +10,7 @@ import pygame
 # custom modules
 import utilities
 from input import update_input, is_key_pressed, is_left_clicked, get_mouse_pos
+from network import Network
 from player import Player
 
 # filesystem info
@@ -18,6 +19,7 @@ IMAGES_DIR = os.path.join(BASE_DIR, 'images')
 
 # misc
 WINDOW = (1280, 960)
+SERVER_PORT = 9923
 TERRITORY = {
     # North America
     (255, 255, 0, 255): "Greenland_highlight.png",
@@ -105,13 +107,6 @@ infantry_count = {
     6: 20
 }
 
-
-class Buffer:
-    def __init__(self):
-        self.data_in = b''
-        self.data_out = b''
-
-
 def run_initial_army_placement():
     pass
     # rolls = player.roll_dice(1, 0)
@@ -152,13 +147,12 @@ def run():
     players = []
 
     # init network stuff
-    port = 9923
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sel = selectors.DefaultSelector()
+    net = Network()
 
     while True:
         # updates (input, network, game loop)
         update_input()
+        net.update()
 
         # player wants to quit
         if is_key_pressed(pygame.K_ESCAPE):
@@ -188,60 +182,16 @@ def run():
         if is_key_pressed('h'):
             add_player(players)
 
-            print("Listening on port {port}")
-            sock.bind(('localhost', port))
-            sock.setblocking(False)
-            sock.listen()
-            sel.register(sock, selectors.EVENT_READ, data=None)
-
-            while True:
-                if is_key_pressed('s'):
-                    break
-
-                events = sel.select()
-                for key, mask in events:
-                    csock = key.fileobj
-                    if key.data is None:
-                        # add new connection
-                        conn, addr = csock.accept()
-                        print(f"New connection from {addr}")
-                        sel.register(conn, selectors.EVENT_READ, data=Buffer())
-                        add_player(players)
-                    else:
-                        # process existing connection
-                        if mask == selectors.EVENT_READ:
-                            data = csock.recv(1024)
-                            print(f"{str(csock.laddr)}: {data.decode('utf-8')}")
-                            key.data.data_in += data
-                            sel.unregister(csock)
-                            if data:
-                                sel.register(csock, selectors.EVENT_WRITE, data=key.data)
-                            else:
-                                csock.close()
-                        elif mask == selectors.EVENT_WRITE:
-                            sent = csock.send(key.data.data_in)
-                            print(f"Sent to {str(csock.laddr)}: {key.data.data_in[:sent].decode('utf-8')}")
-                            key.data.data_in = key.data.data_in[sent:]
-                            if not key.data.data_in:
-                                sel.unregister(csock)
-                                sel.register(csock, selectors.EVENT_READ, data=key.data)
+            net.listen('localhost', 9923)
 
         # player wants to join a game
         if is_key_pressed('j'):
-            server = input('Server IP: ')
-            sock.connect_ex((server, port))
-            print("Connected to {(server, port)}")
+            sock = net.connect(input('Server IP: '), SERVER_PORT)
 
-            while True:
-                msg = input('Chat: ').encode('utf-8')
-                sent = 0
-                while sent < len(msg):
-                    sent += sock.send(msg)
-                if sent:
-                    msg = sock.recv(1024)
-                    print(msg.decode('utf-8'))
-                else:
-                    break
+        # player wants to chat
+        if is_key_pressed('c'):
+            msg = input('Say: ').encode('utf-8')
+            net.send(sock, msg)
 
         # render
         window.fill(utilities.WHITE)
@@ -252,6 +202,7 @@ def run():
             window.blit(country, (0, 0))
         pygame.display.update()
 
+    net.shutdown()
     pygame.quit()
     # initialize
     # num_players = 3
