@@ -1,6 +1,8 @@
 import socket
 import selectors
 
+from player import Player
+
 # app magic
 magic = 0x1234567890abcdef
 
@@ -16,50 +18,52 @@ class Network:
         self.sockets = []
         self.selector = None
         self.listener = None
+        self.s = None
 
-    def update(self):
+    def update(self, board):
         """Checks sockets for read/write events."""
-        if self.selector is None:
-            return
+        for player in board.players:
+            if player.sendq:
+                sent = self.send(player.sock, player.sendq)
+                player.sendq = player.sendq[:sent]
 
-        events = self.selector.select(timeout=0)
-        for key, mask in events:
-            sock = key.fileobj
-            data = key.data
-            if data is None:
-                # accept a new connection
-                self._accept()
-            else:
-                # process an existing connection
-                if mask == selectors.EVENT_READ:
-                    d = sock.recv(1024)
-                    bytes_read = len(d)
-                    if bytes_read:
-                        data.recvq += d
-                        print(f"Received {bytes_read} bytes from {sock.getpeername()}")
-                        print(data.recvq.decode('utf-8'))
+        if self.selector is not None:
+            events = self.selector.select(timeout=0)
+            for key, mask in events:
+                sock = key.fileobj
+                player = key.data
+                if player is None:
+                    # accept a new connection
+                    board.add_player(self._accept())
+                else:
+                    # process an existing connection
+                    if mask == selectors.EVENT_READ:
+                        data = sock.recv(1024)
+                        if data:
+                            player.recv_data(data)
+                            print(f"Received {len(data)} bytes from {sock.getpeername()}")
 
-                elif mask == selectors.EVENT_WRITE:
-                    if not data.sendq:
-                        continue
-                    self.send(sock, data.sendq)
-                    data.sendq = b''
-                    self.sel.unregister(sock)
+                    elif mask == selectors.EVENT_WRITE:
+                        if not data.sendq:
+                            continue
+                        self.send(sock, data.sendq)
+                        data.sendq = b''
+                        self.sel.unregister(sock)
 
     def _accept(self):
         """Accepts a new incoming connection."""
         s, addr = self.listener.accept()
         s.setblocking(False)
-        self.selector.register(s, selectors.EVENT_READ, data=Buffer())
+        self.selector.register(s, selectors.EVENT_READ, data=Player())
         print(f"{addr} has connected")
+        return s
 
     def connect(self, ip, port):
         """Connects to a given IP:PORT. Returns a new socket."""
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.connect((ip, port))
-        print(f"Connected to {s.getpeername()}")
-        self.sockets.append(s)
-        return s
+        self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.s.connect((ip, port))
+        print(f"Connected to {self.s.getpeername()}")
+        return self.s
 
     def listen(self, ip, port):
         """Listens for new connections on a given IP:PORT."""
@@ -79,6 +83,7 @@ class Network:
         """Sends all data on a given socket."""
         bytes_sent = s.send(data)
         print(f"Sent {bytes_sent} bytes to {s.getpeername()}")
+        return bytes_sent
 
     def shutdown(self):
         for s in self.sockets:

@@ -107,31 +107,55 @@ infantry_count = {
     6: 20
 }
 
-def run_initial_army_placement():
-    pass
-    # rolls = player.roll_dice(1, 0)
 
-    # for p in players:
-    #    rolls = p.get_roll()
-
-    # rolls = sorted([(p.get_rolls())[0][0] for p in players])
-    # d
-    # send result to server, server sends to everyone else
-    # sort results
-    # loop through players
+# RYSK frame types
+RYSK_FRAME_TERRITORY_CLICK = 0
 
 
-def add_player(players):
-    colors = ["black", "blue", "magenta", "green"]
-    scale_x = WINDOW[0] // MAX_PLAYERS
-    scale_y = WINDOW[1] // 2
+class Board:
+    PLAYER_COLORS = ["black", "blue", "magenta", "green"]
 
-    num_player = len(players)
-    x, y = scale_x * num_player, scale_y
-    player = Player(colors[num_player], (x, y))
-    scale = (scale_x, scale_y)
-    player.surface = pygame.transform.scale(player.surface, scale)
-    players.append(player)
+    def __init__(self):
+        self.sendq = bytearray()
+        self.recvq = bytearray()
+
+        self.players = []
+        self.country = None
+
+    def add_player(self, sock):
+        x = WINDOW[0] // MAX_PLAYERS
+        y = WINDOW[1] // 2
+        num_players = len(self.players)
+        p = Player(self.PLAYER_COLORS[num_players], (x * num_players, y))
+        p.surface = pygame.transform.scale(p.surface, (x, y))
+        p.sock = sock
+        self.players.append(p)
+
+    def send_territory_click(self, territory_id):
+        if not self.players:
+            return
+        frame = bytearray(4)
+        frame[0] = RYSK_FRAME_TERRITORY_CLICK
+        frame[1] = territory_id[0]
+        frame[2] = territory_id[1]
+        frame[3] = territory_id[2]
+        self.players[0].sendq += frame
+
+    def update(self):
+        for player in self.players:
+            if player.recvq:
+                frame_type = player.recvq[0]
+                if frame_type == RYSK_FRAME_TERRITORY_CLICK:
+                    r, g, b = self.recvq[1:4]
+                    print("Frame 0: ({r}, {g}, {b})")
+                    self.country = load_image(TERRITORY.get((r, g, b)))
+                    if self.country:
+                        self.country = pygame.transform.scale(self.country, WINDOW)
+                    player.recvq = player.recvq[4:]
+
+    def draw(self, window):
+        if self.country:
+            window.blit(self.country, (0, 0))
 
 
 def run():
@@ -143,8 +167,8 @@ def run():
     # init game stuff
     background = pygame.transform.scale(load_image('continents_v2.png'),
                                         WINDOW)
+    board = Board()
     country = None
-    players = []
 
     # init network stuff
     net = Network()
@@ -152,7 +176,8 @@ def run():
     while True:
         # updates (input, network, game loop)
         update_input()
-        net.update()
+        net.update(board)
+        board.update()
 
         # player wants to quit
         if is_key_pressed(pygame.K_ESCAPE):
@@ -169,9 +194,10 @@ def run():
                 country = load_image(TERRITORY.get(color))
                 if country:
                     country = pygame.transform.scale(country, WINDOW)
+                    board.send_territory_click(color)
 
             # slide player card when clicked
-            for player in players:
+            for player in board.players:
                 player_rect = pygame.Rect(player.pos,
                                           (player.surface.get_width(),
                                            player.surface.get_height()))
@@ -180,13 +206,12 @@ def run():
 
         # player wants to host a game
         if is_key_pressed('h'):
-            add_player(players)
-
             net.listen('localhost', 9923)
 
         # player wants to join a game
         if is_key_pressed('j'):
             sock = net.connect(input('Server IP: '), SERVER_PORT)
+            board.add_player(sock)
 
         # player wants to chat
         if is_key_pressed('c'):
@@ -196,24 +221,15 @@ def run():
         # render
         window.fill(utilities.WHITE)
         window.blit(background, (0, 0))
-        for player in players:
-            window.blit(player.surface, player.pos)
+        for player in board.players:
+            if player.surface is not None:
+                window.blit(player.surface, player.pos)
         if country:
             window.blit(country, (0, 0))
         pygame.display.update()
 
     net.shutdown()
     pygame.quit()
-    # initialize
-    # num_players = 3
-
-    # for i in range(num_players):
-    #    players.append(Player(infantry_count[num_players]))
-
-    # state = STATE_INITIAL_ARMY_PLACEMENT
-    # while True:
-    #    if state == STATE_INITIAL_ARMY_PLACEMENT:
-    #        run_initial_army_placement()
 
 
 if __name__ == "__main__":

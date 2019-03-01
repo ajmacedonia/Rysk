@@ -34,3 +34,15 @@ def load_image(name):
     except:
         print("Failed to load {0}".format(fullname))
     return image
+
+
+def load_fonts(self):
+    """Loads some pygame fonts into the Core."""
+    self.font_small = pygame.font.SysFont("comicsansms", 25)
+    self.font_med = pygame.font.SysFont("comicsansms", 50)
+    self.font_large = pygame.font.SysFont("comicsansms", 80)
+
+def message_to_screen(msg, color, y_displace=0, size="small"):
+    text_surface, text_rect = create_text_objects(msg, color, size)
+    text_rect.center = (display_width / 2), (display_height / 2) + y_displace
+    self.display.blit(text_surface, text_rect)
