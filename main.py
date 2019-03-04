@@ -116,9 +116,6 @@ class Board:
     PLAYER_COLORS = ["black", "blue", "magenta", "green"]
 
     def __init__(self):
-        self.sendq = bytearray()
-        self.recvq = bytearray()
-
         self.players = []
         self.country = None
 
@@ -134,26 +131,37 @@ class Board:
     def send_territory_click(self, territory_id):
         if not self.players:
             return
-        frame = bytearray(4)
+        frame = bytearray(5)
         frame[0] = RYSK_FRAME_TERRITORY_CLICK
         frame[1] = territory_id[0]
         frame[2] = territory_id[1]
         frame[3] = territory_id[2]
+        frame[4] = territory_id[3]
         self.players[0].sendq += frame
 
     def update(self):
         for player in self.players:
             if player.recvq:
                 frame_type = player.recvq[0]
+                frame_len = 1
                 if frame_type == RYSK_FRAME_TERRITORY_CLICK:
-                    r, g, b = self.recvq[1:4]
-                    print("Frame 0: ({r}, {g}, {b})")
-                    self.country = load_image(TERRITORY.get((r, g, b)))
+                    frame_len += 4
+                    r = player.recvq[1]
+                    g = player.recvq[2]
+                    b = player.recvq[3]
+                    a = player.recvq[4]
+                    color = (r, g ,b, a)
+                    print(f"Frame 0: {color}")
+                    self.country = load_image(TERRITORY.get(color))
                     if self.country:
                         self.country = pygame.transform.scale(self.country, WINDOW)
-                    player.recvq = player.recvq[4:]
+                    player.recvq = player.recvq[frame_len:]
 
     def draw(self, window):
+        for player in self.players:
+            if player.surface is not None:
+                window.blit(player.surface, player.pos)
+
         if self.country:
             window.blit(self.country, (0, 0))
 
@@ -221,9 +229,7 @@ def run():
         # render
         window.fill(utilities.WHITE)
         window.blit(background, (0, 0))
-        for player in board.players:
-            if player.surface is not None:
-                window.blit(player.surface, player.pos)
+        board.draw(window)
         if country:
             window.blit(country, (0, 0))
         pygame.display.update()

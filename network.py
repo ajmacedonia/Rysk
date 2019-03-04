@@ -25,7 +25,7 @@ class Network:
         for player in board.players:
             if player.sendq:
                 sent = self.send(player.sock, player.sendq)
-                player.sendq = player.sendq[:sent]
+                player.sendq = player.sendq[sent:]
 
         if self.selector is not None:
             events = self.selector.select(timeout=0)
@@ -34,7 +34,7 @@ class Network:
                 player = key.data
                 if player is None:
                     # accept a new connection
-                    board.add_player(self._accept())
+                    self._accept(board)
                 else:
                     # process an existing connection
                     if mask == selectors.EVENT_READ:
@@ -50,11 +50,12 @@ class Network:
                         data.sendq = b''
                         self.sel.unregister(sock)
 
-    def _accept(self):
+    def _accept(self, board):
         """Accepts a new incoming connection."""
         s, addr = self.listener.accept()
         s.setblocking(False)
-        self.selector.register(s, selectors.EVENT_READ, data=Player())
+        board.add_player(s)
+        self.selector.register(s, selectors.EVENT_READ, data=board.players[-1])
         print(f"{addr} has connected")
         return s
 

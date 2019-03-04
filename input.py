@@ -7,16 +7,20 @@ KEY_DOWN = pygame.K_DOWN
 KEY_ESCAPE = pygame.K_ESCAPE
 SPECIAL_CHARS = (KEY_LEFT, KEY_RIGHT, KEY_UP, KEY_DOWN, KEY_ESCAPE)
 keypress = {}
-mouse_state = None
+mouse_buttons = [None] * 4
+mouse_buttons_prev = [None] * 4
 
 
 def update_input():
     global keypress
-    global mouse_state
+    global mouse_buttons
+    global mouse_buttons_prev
 
     # clear key presses
     for key in keypress.keys():
         keypress[key] = False
+
+    mouse_buttons_prev[:] = mouse_buttons[:]
 
     #  record key presses
     for event in pygame.event.get():
@@ -25,9 +29,9 @@ def update_input():
         elif event.type == pygame.KEYUP:
             keypress[event.key] = False
         elif event.type == pygame.MOUSEBUTTONDOWN:
-            mouse_state = (*event.pos, event.button)
+            mouse_buttons[event.button] = True
         elif event.type == pygame.MOUSEBUTTONUP:
-            mouse_state = (*event.pos, False)
+            mouse_buttons[event.button] = False
         elif event.type == pygame.QUIT:
             keypress[pygame.K_ESCAPE] = True
 
@@ -41,7 +45,12 @@ def is_key_pressed(key):
 
 def is_left_clicked():
     """"Returns True if left mouse button is down."""
-    return pygame.mouse.get_pressed()[0]
+    return mouse_buttons_prev[1] and not mouse_buttons[1]
+
+
+def is_right_clicked():
+    """"Returns True if right mouse button is down."""
+    return mouse_buttons_prev[3] and not mouse_buttons[3]
 
 
 def get_mouse_pos():
