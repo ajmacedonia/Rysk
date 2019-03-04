@@ -1,4 +1,3 @@
-import pygame
 from utilities import load_image
 
 CARD_POS_DOWN = 0
@@ -16,6 +15,7 @@ class Player:
             self.surface = None
         self.pos = pos
         self.curr_pos = 1
+        self.focus = None
 
         self.rolled = False
         self.rolls = []

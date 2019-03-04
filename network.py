@@ -1,16 +1,9 @@
 import socket
 import selectors
 
-from player import Player
 
 # app magic
 magic = 0x1234567890abcdef
-
-
-class Buffer:
-    def __init__(self):
-        self.sendq = bytearray()
-        self.recvq = bytearray()
 
 
 class Network:
@@ -91,45 +84,3 @@ class Network:
             s.close()
         if self.listener is not None:
             self.listener.close()
-
-
-def send_dice_roll(player, results):
-    buf = bytearray([player.player_id, len(results)] + results)
-    return buf
-
-
-def process_dice_roll(data):
-    player_id = data[0]
-    num_dice = data[1]
-    print(f"player {player_id} rolled {num_dice} dice: ", end='')
-    for i in range(num_dice):
-        print(data[2+i], end=' ')
-
-
-def send_state_change(state):
-    pass
-
-
-def send_territory_update():
-    pass
-
-# Message types
-# DICE_ROLL
-# - player
-#  - num dice
-#  - results
-#  ...
-# ...
-#
-# STATE_CHANGE
-# - state
-#  - State-specific data
-#
-# TERRITORY_UPDATE
-# - territory
-# - owner
-# - add/remove num troops
-#
-#
-#
-#
