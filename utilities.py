@@ -3,12 +3,18 @@ import random
 
 import pygame
 
+# Game stuff
+MAX_PLAYERS = 4
 
-# FS
+# Misc
+WINDOW = (1280, 960)
+SERVER_PORT = 9923
+
+# Filesystem
 BASE_DIR = os.path.split(os.path.abspath(__file__))[0]
 IMAGES_DIR = os.path.join(BASE_DIR, "images")
 
-# colors
+# Colors
 BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
 GREY = (100, 100, 100)
@@ -22,7 +28,7 @@ LIGHT_BLUE = (0, 0, 255)
 YELLOW = (200, 200, 0)
 LIGHT_YELLOW = (255, 255, 0)
 
-# keys
+# Keys
 K_escape = '\x1b'
 
 

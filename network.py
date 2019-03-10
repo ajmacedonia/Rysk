@@ -11,15 +11,9 @@ class Network:
         self.sockets = []
         self.selector = None
         self.listener = None
-        self.s = None
 
     def update(self, board):
         """Checks sockets for read/write events."""
-        for player in board.players:
-            if player.sendq:
-                sent = self.send(player.sock, player.sendq)
-                player.sendq = player.sendq[sent:]
-
         if self.selector is not None:
             events = self.selector.select(timeout=0)
             for key, mask in events:
@@ -30,34 +24,41 @@ class Network:
                     self._accept(board)
                 else:
                     # process an existing connection
-                    if mask == selectors.EVENT_READ:
+                    if mask & selectors.EVENT_READ:
                         data = sock.recv(1024)
                         if data:
                             player.recv_data(data)
                             print(f"Received {len(data)} bytes from {sock.getpeername()}")
-
-                    elif mask == selectors.EVENT_WRITE:
-                        if not data.sendq:
+                    if mask & selectors.EVENT_WRITE:
+                        if not player.sendq:
                             continue
-                        self.send(sock, data.sendq)
-                        data.sendq = b''
-                        self.sel.unregister(sock)
+                        sent = self.send(sock, player.sendq)
+                        player.sendq = player.sendq[sent:]
+                        # self.sel.unregister(sock)
 
     def _accept(self, board):
         """Accepts a new incoming connection."""
         s, addr = self.listener.accept()
         s.setblocking(False)
-        board.add_player(s)
-        self.selector.register(s, selectors.EVENT_READ, data=board.players[-1])
         print(f"{addr} has connected")
+        board.add_player(None, False, sock=s)
+        self.selector.register(s, selectors.EVENT_READ | selectors.EVENT_WRITE,
+                               data=board.players[-1])
+
         return s
 
-    def connect(self, ip, port):
+    def connect(self, ip, port, board):
         """Connects to a given IP:PORT. Returns a new socket."""
-        self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.s.connect((ip, port))
-        print(f"Connected to {self.s.getpeername()}")
-        return self.s
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.connect((ip, port))
+        s.setblocking(False)
+        board.add_player(None, True, sock=s)
+        self.selector = selectors.DefaultSelector()
+        self.selector.register(s, selectors.EVENT_READ | selectors.EVENT_WRITE,
+                               data=board.players[-1])
+        print(f"Connected to {s.getpeername()}")
+        self.sockets.append(s)
+        return s
 
     def listen(self, ip, port):
         """Listens for new connections on a given IP:PORT."""

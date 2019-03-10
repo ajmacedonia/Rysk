@@ -1,3 +1,6 @@
+# built-in modules
+
+
 # external modules
 import pygame
 
@@ -8,9 +11,7 @@ from network import Network
 from board import Board
 from button import Button
 
-# misc
-WINDOW = (1280, 960)
-SERVER_PORT = 9923
+WINDOW = utilities.WINDOW
 
 STATE_INITIAL_ARMY_PLACEMENT = 0
 
@@ -55,19 +56,22 @@ def run():
             pos = get_mouse_pos()
             for player in board.players:
                 player_rect = pygame.Rect(player.pos,
-                                          (player.surface.get_width(),
-                                           player.surface.get_height()))
+                                          (player.sprite.get_width(),
+                                           player.sprite.get_height()))
                 if player_rect.collidepoint(*pos):
                     player.clicked()
 
         # player wants to host a game
         if is_key_pressed('h') or button_host.clicked():
+            pygame.display.set_caption('RYSK (Host)')
+            board.is_host = True
+            board.add_player(None, 0, True)
             net.listen('localhost', 9923)
 
         # player wants to join a game
         if is_key_pressed('j') or button_join.clicked():
-            sock = net.connect(input('Server IP: '), SERVER_PORT)
-            board.add_player(sock)
+            pygame.display.set_caption('RYSK (Client)')
+            sock = net.connect('localhost', utilities.SERVER_PORT, board)
 
         # player wants to chat
         if is_key_pressed('c'):
