@@ -1,5 +1,5 @@
 # built-in modules
-
+import argparse
 
 # external modules
 import pygame
@@ -25,7 +25,7 @@ infantry_count = {
 }
 
 
-def run():
+def run(run_client=None, run_server=None):
     # init window stuff
     pygame.init()
     pygame.display.set_caption('RYSK')
@@ -62,14 +62,16 @@ def run():
                     player.clicked()
 
         # player wants to host a game
-        if is_key_pressed('h') or button_host.clicked():
+        if is_key_pressed('h') or button_host.clicked() or run_server:
+            run_server = False
             pygame.display.set_caption('RYSK (Host)')
             board.is_host = True
-            board.add_player(None, 0, True)
+            board.add_player(None, True)
             net.listen('localhost', 9923)
 
         # player wants to join a game
-        if is_key_pressed('j') or button_join.clicked():
+        if is_key_pressed('j') or button_join.clicked() or run_client:
+            run_client=False
             pygame.display.set_caption('RYSK (Client)')
             sock = net.connect('localhost', utilities.SERVER_PORT, board)
 
@@ -90,4 +92,10 @@ def run():
 
 
 if __name__ == "__main__":
-    run()
+    ap = argparse.ArgumentParser(prog="RYSK", description="The World Conquest Game")
+    ap.add_argument('-c', '--client', required=False, action='store_true',
+                    help="Run as Client")
+    ap.add_argument('-s', '--server', required=False, action='store_true',
+                    help="Run as Server")
+    args = ap.parse_args()
+    run(run_client=args.client, run_server=args.server)
