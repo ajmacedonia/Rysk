@@ -9,43 +9,12 @@ magic = 0x1234567890abcdef
 
 class Network:
     def __init__(self):
-        self.sockets = []
         self.selector = None
         self.listener = None
 
     def update(self, board):
         """Checks sockets for read/write events."""
-        # board is either host or not
-        # if host - run select loop on all player sockets
-        #   - attempt recv on all players (do not change selector state)
-        #   - attempt send if player has data to send (do not change state)
-        # if not host - attempt recv on local player, attempt send
-        # if not board.is_host and board.local_player is not None:
-        #     # clients maintain a single connection
-        #     p = board.local_player
-        #     # receive as much as we can
-        #     data = p.sock.recv(1024)
-        #     if data:
-        #         p.recv_data(data)
-        #         print(f"Received {len(data)} bytes from {p.sock.getpeername()}")
-        #     # send as much as we can
-        #     if p.sendq:
-        #         sent = self.send(p.sock, p.sendq)
-        #         p.sendq = p.sendq[sent:]
-        # elif board.is_host:
         if self.selector is not None:
-            # hosts maintain connections with all players
-            # for p in board.players:
-            #     if p.sock is None:
-            #         continue
-            #     data = p.sock.recv(1024)
-            #     if data:
-            #         p.recv_data(data)
-            #         print(f"Received {len(data)} bytes from {p.sock.getpeername()}")
-            #     if p.sendq:
-            #         sent = self.send(p.sock, p.sendq)
-            #         p.sendq = p.sendq[sent:]
-
             events = self.selector.select(timeout=0)
             for key, mask in events:
                 sock = key.fileobj
@@ -67,7 +36,6 @@ class Network:
                             continue
                         sent = self.send(sock, player.sendq)
                         player.sendq = player.sendq[sent:]
-                        # self.sel.unregister(sock)
 
     def _accept(self, board):
         """Accepts a new incoming connection."""
@@ -90,7 +58,6 @@ class Network:
         self.selector.register(s, selectors.EVENT_READ | selectors.EVENT_WRITE,
                                data=board.players[-1])
         print(f"Connected to {s.getpeername()}")
-        self.sockets.append(s)
         return s
 
     def listen(self, ip, port):
