@@ -1,6 +1,7 @@
 import socket
 import selectors
 
+import utilities
 
 # app magic
 magic = 0x1234567890abcdef
@@ -52,6 +53,8 @@ class Network:
                 if player is None:
                     # accept a new connection
                     self._accept(board)
+                    if len(board.players) == utilities.MAX_PLAYERS:
+                        self.selector.unregister(self.listener)
                 else:
                     # process an existing connection
                     if mask & selectors.EVENT_READ:

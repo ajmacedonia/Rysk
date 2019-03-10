@@ -82,16 +82,22 @@ class Board:
         self.fg = None
 
     def add_player(self, player_id, local, sock=None, index=None):
-        p = Player(player_id or random.randint(1, 255),
-                   index or len(self.players))
-        p.local = local
-        p.sock = sock
-        p.reload()
-        if self.is_host and not p.local:
-            self.send_init_game(p)
+        new_player = Player(player_id or random.randint(1, 255))
+        new_player.index = index if index is not None else len(self.players)
+        new_player.local = local
+        new_player.sock = sock
+        new_player.reload()
+        # when a new client joins the lobby
+        if self.is_host and not new_player.local:
+            # introduce everyone
+            self.send_init_game(new_player)
+            for p in self.players:
+                self.send_add_player(new_player, p)
+                if p is not self.local_player:
+                    self.send_add_player(p, new_player)
         if self.local_player is None and local is True:
-            self.local_player = p
-        self.players.append(p)
+            self.local_player = new_player
+        self.players.append(new_player)
 
     def send_init_game(self, player):
         frame = bytearray(3)
@@ -121,10 +127,8 @@ class Board:
 
     def parse_territory_click(self, player):
         frame_len = 5
-        r = player.recvq[1]
-        g = player.recvq[2]
-        b = player.recvq[3]
-        a = player.recvq[4]
+        frame = player.recvq[:frame_len]
+        r, g, b, a = frame[1:frame_len]
         color = (r, g, b, a)
         territory = utilities.load_image(TERRITORY.get(color))
         if territory:
@@ -133,6 +137,7 @@ class Board:
         player.recvq = player.recvq[frame_len:]
         print(f"Received TERRITORY_CLICK ({frame_len} bytes): "
               f"territory_id {color}")
+        return frame
 
     def send_add_player(self, player, new_player):
         frame = bytearray(3)
@@ -145,10 +150,19 @@ class Board:
 
     def parse_add_player(self, player):
         frame_len = 3
-        player_id, index = player.recvq[1:3]
-        self.add_player(id, False, index=index)
+        frame = player.recvq[:frame_len]
+        player_id, index = frame[1:3]
+        self.add_player(player_id, False, index=index)
+        player.recvq = player.recvq[frame_len:]
         print(f"Received ADD_PLAYER ({frame_len} bytes): player id {player_id}, "
               f"index {index}")
+        return frame
+
+    def send_to_all_players(self, data, exceptions=None):
+        """Send some data to all players."""
+        for p in self.players:
+            if exceptions is not None and p not in exceptions:
+                p.send_data(data)
 
     def update(self):
         if is_left_clicked():
@@ -170,14 +184,15 @@ class Board:
                         self.send_territory_click(self.local_player, color)
 
         for player in self.players:
-            if player.recvq:
+            while player.recvq:
                 frame_type = player.recvq[0]
                 if frame_type == RYSK_FRAME_INIT_GAME:
                     self.parse_init_game(player)
                 elif frame_type == RYSK_FRAME_ADD_PLAYER:
                     self.parse_add_player(player)
                 elif frame_type == RYSK_FRAME_TERRITORY_CLICK:
-                    self.parse_territory_click(player)
+                    frame = self.parse_territory_click(player)
+                    self.send_to_all_players(frame, exceptions=[player])
 
     def draw(self, window):
         # draw background

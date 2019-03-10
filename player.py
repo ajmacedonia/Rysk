@@ -10,11 +10,11 @@ PLAYER_SPRITE = ["playercard_black.png", "playercard_blue.png",
 
 
 class Player:
-    def __init__(self, player_id=None, index=None):
+    def __init__(self, player_id=None):
         # player ID assigned by Server
         self.id = player_id
         # player card, color, etc.
-        self.index = index or 0
+        self.index = None
         # player representation (player cards currently)
         self.sprite = None
 
