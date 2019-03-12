@@ -65,7 +65,7 @@ def run(run_client=None, run_server=None):
         if is_key_pressed('h') or button_host.clicked() or run_server:
             run_server = False
             pygame.display.set_caption('RYSK (Host)')
-            board.is_host = True
+            board.f_host = True
             board.add_player(None, True)
             net.listen('localhost', 9923)
 

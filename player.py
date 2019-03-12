@@ -17,18 +17,23 @@ class Player:
         self.index = None
         # player representation (player cards currently)
         self.sprite = None
-
         self.pos = None
-        self.curr_pos = 1
+        # currently highlighted territory
         self.focus = None
 
-        self.rolled = False
-        self.rolls = []
+        # most recent dice rolls
+        self.reds = []
+        self.whites = []
+        self.f_rolled = None
 
+        # this is going to be refactored
         self.card_positions = self._gen_card_positions()
 
-        self.local = None
+        # local player instance
+        self.f_local = None
+        # network socket
         self.sock = None
+        # send and receive queues
         self.sendq = bytearray()
         self.recvq = bytearray()
 

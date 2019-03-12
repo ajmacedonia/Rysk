@@ -5,7 +5,7 @@ from collections import namedtuple
 import pygame
 
 import utilities
-from input import is_left_clicked, get_mouse_pos
+from input import is_left_clicked, get_mouse_pos, is_key_pressed
 from player import Player
 
 TERRITORY = {
@@ -63,8 +63,13 @@ Object = namedtuple('Object', ['surf', 'pos'])
 
 # RYSK frame types
 RYSK_FRAME_INIT_GAME = 0
-RYSK_FRAME_ADD_PLAYER = 1
-RYSK_FRAME_TERRITORY_CLICK = 2
+RYSK_FRAME_START_GAME = 1
+RYSK_FRAME_ADD_PLAYER = 2
+RYSK_FRAME_TERRITORY_CLICK = 3
+RYSK_FRAME_DICE_ROLL = 4
+
+# RYSK game states
+INITIAL_ARMY_PLACEMENT = 0
 
 
 class Board:
@@ -72,7 +77,7 @@ class Board:
 
     def __init__(self, window):
         self.window = window
-        self.is_host = False
+        self.f_host = False
         self.local_player = None
         self.players = []
         self.objects = []
@@ -80,15 +85,52 @@ class Board:
         self.bg = pygame.transform.scale(utilities.load_image('continents_v2.png'),
                                          self.window)
         self.fg = None
+        self.state = None
+        self.stage = 1
+
+    def state_initial_army_placement(self):
+        if self.stage == 1:
+            d = input("Everyone rolls 1 die to determine turn order. Red or white (r/w)?: ")
+            if d == 'r':
+                reds, whites = utilities.roll_dice(1, 0)
+            else:
+                reds, whites = utilities.roll_dice(0, 1)
+            self.local_player.reds, self.local_player.whites = reds, whites
+            self.local_player.f_rolled = True
+
+            if self.f_host:
+                frame = self.send_dice_roll(None, self.local_player.id,
+                                            reds, whites, send=False)
+                self.send_to_all_players(frame, [self.local_player])
+            else:
+                self.send_dice_roll(self.local_player, self.local_player.id,
+                                    reds, whites)
+            self.stage = 2
+
+        if self.stage == 2:
+            for p in self.players:
+                if not p.f_rolled:
+                    return
+            self.stage = 3
+
+        if self.stage == 3:
+            print("Reached stage 3")
+            pass
+
+    def get_player_by_id(self, player_id):
+        for p in self.players:
+            if p.id == player_id:
+                return p
+        return None
 
     def add_player(self, player_id, local, sock=None, index=None):
         new_player = Player(player_id or random.randint(1, 255))
         new_player.index = index if index is not None else len(self.players)
-        new_player.local = local
+        new_player.f_local = local
         new_player.sock = sock
         new_player.reload()
         # when a new client joins the lobby
-        if self.is_host and not new_player.local:
+        if self.f_host and not new_player.f_local:
             # introduce everyone
             self.send_init_game(new_player)
             for p in self.players:
@@ -114,6 +156,19 @@ class Board:
         player.recvq = player.recvq[frame_len:]
         print(f"Received INIT_GAME ({frame_len} bytes): player_id {player.id}, index {player.index}")
         player.reload()
+
+    def send_start_game(self, player):
+        frame = bytearray(1)
+        frame[0] = RYSK_FRAME_START_GAME
+        player.send_data(frame)
+        print(f"Sent START_GAME ({len(frame)} bytes)")
+
+    def parse_start_game(self, player):
+        frame_len = 1
+        player.recvq = player.recvq[frame_len:]
+        print(f"Received START_GAME")
+        self.state = INITIAL_ARMY_PLACEMENT
+
 
     def send_territory_click(self, player, territory_id):
         frame = bytearray(5)
@@ -158,6 +213,40 @@ class Board:
               f"index {index}")
         return frame
 
+    def send_dice_roll(self, player, player_id, reds, whites, send=True):
+        frame = bytearray(1)
+        frame[0] = RYSK_FRAME_DICE_ROLL
+        frame.append(player_id)
+        frame.append(len(reds))
+        for roll in reds:
+            frame.append(roll)
+        frame.append(len(whites))
+        for roll in whites:
+            frame.append(roll)
+        if send:
+            player.send_data(frame)
+            print(f"Sent DICE_ROLL ({len(frame)} bytes): player_id {player_id}, "
+                  f"reds {reds}, whites {whites}")
+        return frame
+
+    def parse_dice_roll(self, player):
+        frame_len = 3
+        player_id = player.recvq[1]
+        p = self.get_player_by_id(player_id)
+        num_reds = player.recvq[2]
+        p.reds = list(player.recvq[frame_len:frame_len+num_reds])
+        frame_len += num_reds
+        num_whites = player.recvq[frame_len]
+        frame_len += 1
+        p.whites = list(player.recvq[frame_len:frame_len+num_whites])
+        frame_len += num_whites
+        print(f"Received DICE_ROLL ({frame_len} bytes): player_id {player_id}, "
+              f"reds {p.reds}, whites {p.whites}")
+        p.f_rolled = True
+        frame = player.recvq[:frame_len]
+        player.recvq = player.recvq[frame_len:]
+        return frame
+
     def send_to_all_players(self, data, exceptions=None):
         """Send some data to all players."""
         for p in self.players:
@@ -165,6 +254,7 @@ class Board:
                 p.send_data(data)
 
     def update(self):
+        # check for left clicks on anything
         if is_left_clicked():
             pos = get_mouse_pos()
             color = tuple(self.bg.get_at(pos))
@@ -175,7 +265,7 @@ class Board:
                 country = utilities.load_image(TERRITORY.get(color))
                 if country:
                     self.fg = pygame.transform.scale(country, self.window)
-                    if self.is_host:
+                    if self.f_host:
                         # send to all players
                         for p in self.players:
                             self.send_territory_click(p, color)
@@ -183,16 +273,31 @@ class Board:
                         # send to server
                         self.send_territory_click(self.local_player, color)
 
+        # receive from all players
         for player in self.players:
             while player.recvq:
                 frame_type = player.recvq[0]
                 if frame_type == RYSK_FRAME_INIT_GAME:
                     self.parse_init_game(player)
+                elif frame_type == RYSK_FRAME_START_GAME:
+                    self.parse_start_game(player)
                 elif frame_type == RYSK_FRAME_ADD_PLAYER:
                     self.parse_add_player(player)
                 elif frame_type == RYSK_FRAME_TERRITORY_CLICK:
                     frame = self.parse_territory_click(player)
                     self.send_to_all_players(frame, exceptions=[player])
+                elif frame_type == RYSK_FRAME_DICE_ROLL:
+                    self.parse_dice_roll(player)
+
+        # run game state specific logic
+        if self.state is None:
+            if self.f_host and is_key_pressed('s'):
+                self.state = INITIAL_ARMY_PLACEMENT
+                f = bytearray(1)
+                f[0] = RYSK_FRAME_START_GAME
+                self.send_to_all_players(f, exceptions=[self.local_player])
+        elif self.state == INITIAL_ARMY_PLACEMENT:
+            self.state_initial_army_placement()
 
     def draw(self, window):
         # draw background
