@@ -81,7 +81,5 @@ class Network:
         return bytes_sent
 
     def shutdown(self):
-        for s in self.sockets:
-            s.close()
         if self.listener is not None:
             self.listener.close()

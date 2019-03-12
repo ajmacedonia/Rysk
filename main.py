@@ -87,6 +87,7 @@ def run(run_client=None, run_server=None):
         button_join.draw(window)
         pygame.display.update()
 
+    board.quit()
     net.shutdown()
     pygame.quit()
 

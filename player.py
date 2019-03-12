@@ -18,6 +18,7 @@ class Player:
         # player representation (player cards currently)
         self.sprite = None
         self.pos = None
+        self.color = None
         # currently highlighted territory
         self.focus = None
 
@@ -44,6 +45,18 @@ class Player:
         self.pos = (width * self.index, height)
         sprite = utilities.load_image(PLAYER_SPRITE[self.index])
         self.sprite = pygame.transform.scale(sprite, (width, height))
+        self.color = self.sprite.get_at((0, 50))
+
+    def set_focus(self, territory, scale):
+        t = pygame.transform.scale(territory, scale)
+        for y in range(scale[1]):
+            for x in range(scale[0]):
+                c = t.get_at((x, y))
+                if c != pygame.Color(0, 0, 0, 0):
+                    t.set_at((x, y), pygame.Color(self.color.r,
+                                                  self.color.g,
+                                                  self.color.b, c.a))
+        self.focus = t
 
     def send_data(self, data):
         self.sendq += data

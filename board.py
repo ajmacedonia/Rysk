@@ -1,4 +1,3 @@
-import socket
 import random
 from collections import namedtuple
 
@@ -73,8 +72,6 @@ INITIAL_ARMY_PLACEMENT = 0
 
 
 class Board:
-    PLAYER_COLORS = ["black", "blue", "magenta", "green"]
-
     def __init__(self, window):
         self.window = window
         self.f_host = False
@@ -169,29 +166,29 @@ class Board:
         print(f"Received START_GAME")
         self.state = INITIAL_ARMY_PLACEMENT
 
-
-    def send_territory_click(self, player, territory_id):
-        frame = bytearray(5)
+    def send_territory_click(self, player, territory_id, send=True):
+        frame = bytearray(1)
         frame[0] = RYSK_FRAME_TERRITORY_CLICK
-        frame[1] = territory_id[0]
-        frame[2] = territory_id[1]
-        frame[3] = territory_id[2]
-        frame[4] = territory_id[3]
-        player.send_data(frame)
-        print(f"Sent TERRITORY_CLICK ({len(frame)} bytes): territory_id {territory_id}")
+        frame.append(player.id)
+        frame.extend(territory_id)
+        if send:
+            player.send_data(frame)
+            print(f"Sent TERRITORY_CLICK ({len(frame)} bytes): player_id "
+                  f"{player.id}, territory_id {territory_id}")
+        return frame
 
     def parse_territory_click(self, player):
-        frame_len = 5
+        frame_len = 6
         frame = player.recvq[:frame_len]
-        r, g, b, a = frame[1:frame_len]
+        p = self.get_player_by_id(frame[1])
+        r, g, b, a = frame[2:frame_len]
         color = (r, g, b, a)
         territory = utilities.load_image(TERRITORY.get(color))
         if territory:
-            player.focus = pygame.transform.scale(territory,
-                                                  self.window)
+            p.set_focus(territory, self.window)
         player.recvq = player.recvq[frame_len:]
-        print(f"Received TERRITORY_CLICK ({frame_len} bytes): "
-              f"territory_id {color}")
+        print(f"Received TERRITORY_CLICK ({frame_len} bytes): player_id "
+              f"{player.id}, territory_id {color}")
         return frame
 
     def send_add_player(self, player, new_player):
@@ -262,13 +259,15 @@ class Board:
             # highlight a territory when clicked
             if TERRITORY.get(color):
                 print(f"pos: {pos}, color: {color}, state: {TERRITORY.get(color)}")
-                country = utilities.load_image(TERRITORY.get(color))
-                if country:
-                    self.fg = pygame.transform.scale(country, self.window)
+                territory = utilities.load_image(TERRITORY.get(color))
+                if territory:
+                    self.local_player.set_focus(territory, self.window)
                     if self.f_host:
                         # send to all players
-                        for p in self.players:
-                            self.send_territory_click(p, color)
+                        frame = self.send_territory_click(self.local_player,
+                                                          color, send=False)
+                        self.send_to_all_players(frame,
+                                                 exceptions=[self.local_player])
                     else:
                         # send to server
                         self.send_territory_click(self.local_player, color)
@@ -304,10 +303,6 @@ class Board:
         if self.bg:
             window.blit(self.bg, (0, 0))
 
-        # draw foreground
-        if self.fg:
-            window.blit(self.fg, (0, 0))
-
         # draw various objects (buttons, etc.)
         for obj in self.objects:
             window.blit(obj.surf, obj.pos)
@@ -318,3 +313,8 @@ class Board:
                 window.blit(player.focus, (0, 0))
             if player.sprite is not None:
                 window.blit(player.sprite, player.pos)
+
+    def quit(self):
+        for p in self.players:
+            if p.sock is not None:
+                p.sock.close()
