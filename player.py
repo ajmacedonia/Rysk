@@ -37,6 +37,8 @@ class Player:
         # send and receive queues
         self.sendq = bytearray()
         self.recvq = bytearray()
+        # TRUE if a full frame is ready to be read
+        self.f_ready_to_read = False
 
     def reload(self):
         """Re-initialize certain attributes."""
@@ -61,8 +63,9 @@ class Player:
     def send_data(self, data):
         self.sendq += data
 
-    def recv_data(self, data):
+    def recv_data(self, data, f_ready):
         self.recvq += data
+        self.f_ready_to_read = f_ready
 
     def update(self):
         pass

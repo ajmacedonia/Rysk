@@ -274,7 +274,7 @@ class Board:
 
         # receive from all players
         for player in self.players:
-            while player.recvq:
+            while player.recvq and player.f_ready_to_read:
                 frame_type = player.recvq[0]
                 if frame_type == RYSK_FRAME_INIT_GAME:
                     self.parse_init_game(player)
@@ -287,6 +287,7 @@ class Board:
                     self.send_to_all_players(frame, exceptions=[player])
                 elif frame_type == RYSK_FRAME_DICE_ROLL:
                     self.parse_dice_roll(player)
+            player.f_ready_to_read = False
 
         # run game state specific logic
         if self.state is None:
