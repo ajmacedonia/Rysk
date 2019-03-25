@@ -6,7 +6,7 @@ from input import is_left_clicked, get_mouse_pos
 
 class Button:
     def __init__(self, text=None, pos=None):
-        self.font = pygame.freetype.SysFont("comicsansms", 30)
+        self.font = pygame.freetype.SysFont('comicsansms', 30)
         self.text = text
         self.text_surface, self.text_rect = self.font.render(self.text,
                                                              bgcolor=utilities.GREY)

@@ -71,7 +71,10 @@ class Player:
         pass
 
     def draw(self, window):
-        pass
+        if self.sprite is not None:
+            window.blit(self.sprite, self.pos)
+        if self.focus is not None:
+            window.blit(self.focus, (0, 0))
 
     def _gen_card_positions(self):
         x, y = self.pos[0], self.pos[1] + self.sprite.get_height() - 160

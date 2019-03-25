@@ -260,7 +260,7 @@ class Board:
             if TERRITORY.get(color):
                 print(f"pos: {pos}, color: {color}, state: {TERRITORY.get(color)}")
                 territory = utilities.load_image(TERRITORY.get(color))
-                if territory:
+                if territory and self.local_player:
                     self.local_player.set_focus(territory, self.window)
                     if self.f_host:
                         # send to all players
@@ -310,10 +310,7 @@ class Board:
 
         # draw player stuff
         for player in self.players:
-            if player.focus is not None:
-                window.blit(player.focus, (0, 0))
-            if player.sprite is not None:
-                window.blit(player.sprite, player.pos)
+            player.draw(window)
 
     def quit(self):
         for p in self.players:

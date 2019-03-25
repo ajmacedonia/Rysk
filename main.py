@@ -10,6 +10,7 @@ from input import update_input, is_key_pressed, is_left_clicked, get_mouse_pos
 from network import Network
 from board import Board
 from button import Button
+from chatbox import ChatBox
 
 WINDOW = utilities.WINDOW
 
@@ -33,16 +34,18 @@ def run(run_client=None, run_server=None):
 
     # init game stuff
     board = Board(WINDOW)
-    button_host = Button("(H)ost Game")
-    button_join = Button("(J)oin Game")
+    button_host = Button('(H)ost Game')
+    button_join = Button('(J)oin Game')
     button_join.x += button_host.width + 10
+    chat = ChatBox()
 
     # init network stuff
     net = Network()
 
     while True:
         # updates (input, network, game loop)
-        update_input()
+        chat.update()
+        update_input(chat)
         net.update(board)
         board.update()
 
@@ -85,6 +88,7 @@ def run(run_client=None, run_server=None):
         board.draw(window)
         button_host.draw(window)
         button_join.draw(window)
+        chat.draw(window)
         pygame.display.update()
 
     board.quit()
