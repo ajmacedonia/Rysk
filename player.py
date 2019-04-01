@@ -5,9 +5,6 @@ CARD_POS_DOWN = 0
 CARD_POS_UP = 1
 CARD_POS_FLIPPED = 2
 
-PLAYER_SPRITE = ["playercard_black.png", "playercard_blue.png",
-                 "playercard_magenta.png", "playercard_green.png"]
-
 
 class Player:
     def __init__(self, player_id=None):
@@ -45,8 +42,6 @@ class Player:
         width = utilities.WINDOW[0] // utilities.MAX_PLAYERS
         height = utilities.WINDOW[1] // 2
         self.pos = (width * self.index, height)
-        sprite = utilities.load_image(PLAYER_SPRITE[self.index])
-        self.sprite = pygame.transform.scale(sprite, (width, height))
         self.color = self.sprite.get_at((0, 50))
 
     def set_focus(self, territory, scale):

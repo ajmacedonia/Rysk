@@ -71,17 +71,75 @@ RYSK_FRAME_DICE_ROLL = 4
 INITIAL_ARMY_PLACEMENT = 0
 
 
+class Territory:
+    def __init__(self, name, image, color):
+        self.name = name
+        self.color = color
+        self.player_colors = []
+        self.highlight = [None] * utilities.MAX_PLAYERS
+        self.index = None
+
+        # load default highlight image
+        sprite = utilities.load_image(image)
+        if sprite:
+            sprite = pygame.transform.scale(sprite, utilities.WINDOW)
+        self.default_sprite = sprite
+
+    def cache_highlight(self, index, color):
+        sprite = self.default_sprite.copy()
+
+        for y in range(sprite.get_height()):
+            for x in range(sprite.get_width()):
+                c = sprite.get_at((x, y))
+                if c != pygame.Color(0, 0, 0, 0):
+                    sprite.set_at((x, y), pygame.Color(color[0],
+                                                       color[1],
+                                                       color[2],
+                                                       c.a))
+        self.highlight[index] = sprite
+
+    def on_click(self, index):
+        self.index = index
+
+    def draw(self, window):
+        if self.index is not None:
+            if not self.highlight[self.index]:
+                self.cache_highlight(self.index,
+                                     self.player_colors[self.index])
+            window.blit(self.highlight[self.index], (0, 0))
+
+
 class Board:
     def __init__(self, window):
         self.window = window
         self.f_host = False
         self.local_player = None
         self.players = []
+        self.player_focus = [None] * utilities.MAX_PLAYERS
         self.objects = []
 
+        # load background
         self.bg = pygame.transform.scale(utilities.load_image('continents_v2.png'),
                                          self.window)
-        self.fg = None
+        # load player sprites
+        self.player_sprites = []
+        player_colors = []
+        for image in ["playercard_black.png", "playercard_blue.png",
+                      "playercard_magenta.png", "playercard_green.png"]:
+            i = utilities.load_image(image)
+            i = pygame.transform.scale(i, (window[0] // utilities.MAX_PLAYERS,
+                                           window[1] // 2))
+            player_colors.append(i.get_at((0, 50)))
+            self.player_sprites.append(i)
+            print(f"Loaded: {image}")
+        # load territory objects
+        self.territories = {}
+        for color, image in TERRITORY.items():
+            t = Territory(image.split('_')[0], image, color)
+            t.player_colors = player_colors
+            self.territories[color] = t
+            print(f"Loaded: {image}")
+
         self.state = None
         self.stage = 1
 
@@ -123,6 +181,7 @@ class Board:
     def add_player(self, player_id, local, sock=None, index=None):
         new_player = Player(player_id or random.randint(1, 255))
         new_player.index = index if index is not None else len(self.players)
+        new_player.sprite = self.player_sprites[new_player.index]
         new_player.f_local = local
         new_player.sock = sock
         new_player.reload()
@@ -150,6 +209,7 @@ class Board:
         frame_len = 3
         player.id = player.recvq[1]
         player.index = player.recvq[2]
+        player.sprite = self.player_sprites[player.index]
         player.recvq = player.recvq[frame_len:]
         print(f"Received INIT_GAME ({frame_len} bytes): player_id {player.id}, index {player.index}")
         player.reload()
@@ -178,14 +238,12 @@ class Board:
         return frame
 
     def parse_territory_click(self, player):
-        frame_len = 6
+        frame_len = 5
         frame = player.recvq[:frame_len]
         p = self.get_player_by_id(frame[1])
-        r, g, b, a = frame[2:frame_len]
-        color = (r, g, b, a)
-        territory = utilities.load_image(TERRITORY.get(color))
-        if territory:
-            p.set_focus(territory, self.window)
+        r, g, b = frame[2:frame_len]
+        color = (r, g, b)
+        self.player_focus[p.index] = self.territories.get(color)
         player.recvq = player.recvq[frame_len:]
         print(f"Received TERRITORY_CLICK ({frame_len} bytes): player_id "
               f"{player.id}, territory_id {color}")
@@ -255,22 +313,21 @@ class Board:
         if is_left_clicked():
             pos = get_mouse_pos()
             color = tuple(self.bg.get_at(pos))
+            territory = self.territories.get(color, None)
 
             # highlight a territory when clicked
-            if TERRITORY.get(color):
-                print(f"pos: {pos}, color: {color}, state: {TERRITORY.get(color)}")
-                territory = utilities.load_image(TERRITORY.get(color))
-                if territory and self.local_player:
-                    self.local_player.set_focus(territory, self.window)
-                    if self.f_host:
-                        # send to all players
-                        frame = self.send_territory_click(self.local_player,
-                                                          color, send=False)
-                        self.send_to_all_players(frame,
-                                                 exceptions=[self.local_player])
-                    else:
-                        # send to server
-                        self.send_territory_click(self.local_player, color)
+            if territory and self.local_player:
+                self.player_focus[self.local_player.index] = territory
+                territory.on_click(self.local_player.index)
+                if self.f_host:
+                    # send to all players
+                    frame = self.send_territory_click(self.local_player,
+                                                      color, send=False)
+                    self.send_to_all_players(frame,
+                                             exceptions=[self.local_player])
+                else:
+                    # send to server
+                    self.send_territory_click(self.local_player, color)
 
         # receive from all players
         for player in self.players:
@@ -306,11 +363,14 @@ class Board:
 
         # draw various objects (buttons, etc.)
         for obj in self.objects:
-            window.blit(obj.surf, obj.pos)
+            obj.draw(window)
 
         # draw player stuff
         for player in self.players:
             player.draw(window)
+        for focus in self.player_focus:
+            if focus:
+                focus.draw(window)
 
     def quit(self):
         for p in self.players:

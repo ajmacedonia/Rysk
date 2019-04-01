@@ -1,8 +1,12 @@
+from textwrap import TextWrapper
+
 import pygame
 import pygame.freetype
 
 import utilities
 from input import is_left_clicked, get_mouse_pos
+
+FONT_SIZE = 20
 
 
 class ChatBox:
@@ -10,13 +14,15 @@ class ChatBox:
         self.focused = False
         self.history = ""
         self.current_input = ""
-        self.font = pygame.freetype.SysFont('courier', 20)
+        self.font = pygame.freetype.SysFont('courier', FONT_SIZE)
         self.surface = utilities.load_image('chatbox.png')
         if self.surface:
             scale = (utilities.WINDOW[0] // 4, utilities.WINDOW[1] // 4)
             self.surface = pygame.transform.scale(self.surface, scale)
             self.surface.set_alpha(128)
         self.pos = (utilities.WINDOW[0] - self.surface.get_width(), 0)
+
+        self.wrapper = TextWrapper(width=25)
 
     def get_input(self, key):
         if key == pygame.K_BACKSPACE:
@@ -37,6 +43,9 @@ class ChatBox:
         if self.surface is not None:
             window.blit(self.surface, self.pos)
         if self.current_input:
-            ts, tr = self.font.render(self.current_input)
-            tr.x, tr.y = self.pos[0] + 20, self.pos[1] + 20
-            window.blit(ts, tr)
+            text = self.wrapper.wrap(self.current_input)
+            for i in range(len(text)):
+                ts, tr = self.font.render(text[i])
+                tr.x = self.pos[0] + FONT_SIZE
+                tr.y = self.pos[1] + (FONT_SIZE * (i + 1))
+                window.blit(ts, tr)
