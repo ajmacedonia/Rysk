@@ -37,15 +37,13 @@ def run(run_client=None, run_server=None):
     button_host = Button('(H)ost Game')
     button_join = Button('(J)oin Game')
     button_join.x += button_host.width + 10
-    chat = ChatBox()
 
     # init network stuff
     net = Network()
 
     while True:
         # updates (input, network, game loop)
-        chat.update()
-        update_input(chat)
+        update_input(None)
         net.update(board)
         board.update()
 
@@ -88,7 +86,6 @@ def run(run_client=None, run_server=None):
         board.draw(window)
         button_host.draw(window)
         button_join.draw(window)
-        chat.draw(window)
         pygame.display.update()
 
     board.quit()

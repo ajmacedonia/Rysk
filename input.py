@@ -25,7 +25,7 @@ def update_input(chat):
     #  record key presses
     for event in pygame.event.get():
         if event.type == pygame.KEYDOWN:
-            if chat.focused:
+            if chat and chat.focused:
                 chat.get_input(event.key)
             else:
                 keypress[event.key] = True
