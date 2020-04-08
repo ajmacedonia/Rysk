@@ -34,3 +34,9 @@ def load_image(name):
     except:
         print("Failed to load {0}".format(fullname))
     return image
+
+def render_text(text, xpos, ypos, display):
+    font = pygame.freetype.SysFont("comicsansms", 50)
+    text_surface, text_rect = self.font.render(text, pygame.Color(BLACK), pygame.Color(LIGHT_RED))
+    text_rect.center = (xpos, ypos)
+    display.blit(text_surface, text_rect)
