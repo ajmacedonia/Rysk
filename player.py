@@ -1,5 +1,6 @@
 import pygame
 import utilities
+import logging
 
 CARD_POS_DOWN = 0
 CARD_POS_UP = 1
@@ -7,7 +8,57 @@ CARD_POS_FLIPPED = 2
 
 
 class Player:
+    def __init__(self, player_id=None, name=""):
+        self.ID = player_id
+        self.name = name
+        self.socket = None
+
+        # True if the latest roll hasn't been processed
+        self.f_new_roll = False
+        # The latest attack roll
+        self.attack_roll = []
+        # The latest defense roll
+        self.defense_roll = []
+        # The number of armies available for placement
+        self.n_free_armies = 0
+        # The IDs of owned territories
+        self.territories = set()
+
+    def __repr__(self):
+        return self.__str__()
+
+    def __str__(self):
+        return f"Player ID {self.ID}, name {self.name}, socket {self.socket}\n" \
+               f"Territories: {self.territories}\n" \
+               f"Last attack roll: {self.attack_roll}\n" \
+               f"Last defense roll: {self.defense_roll}"
+
+    def __eq__(self, other):
+        return self.ID == other.ID
+
+    def set_roll(self, attack: list, defense: list) -> None:
+        self.attack_roll = attack
+        self.defense_roll = defense
+        self.f_new_roll = True
+
+    def print_last_roll(self) -> str:
+        return f"attack: {self.attack_roll}, defense: {self.defense_roll}"
+
+    def add_territory(self, t) -> None:
+        self.territories.add(t)
+        logging.debug(f"{self.name} added territory ID {t}")
+
+    def remove_territory(self, t) -> None:
+        try:
+            self.territories.remove(t)
+        except KeyError:
+            logging.exception(f"{self.name} tried to remove unowned {t.name}")
+
+
+class Player2:
     def __init__(self, player_id=None):
+        # player name
+        self.name = ""
         # player ID assigned by Server
         self.id = player_id
         # player card, color, etc.
@@ -18,6 +69,8 @@ class Player:
         self.color = None
         # currently highlighted territory
         self.focus = None
+        # font for name display
+        self.font = pygame.freetype.SysFont('comicsansms', 30)
 
         # most recent dice rolls
         self.reds = []
@@ -68,6 +121,7 @@ class Player:
     def draw(self, window):
         if self.sprite is not None:
             window.blit(self.sprite, self.pos)
+
         if self.focus is not None:
             window.blit(self.focus, (0, 0))
 

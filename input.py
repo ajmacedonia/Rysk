@@ -11,7 +11,7 @@ mouse_buttons = [None] * 4
 mouse_buttons_prev = [None] * 4
 
 
-def update_input(chat):
+def update_input():
     global keypress
     global mouse_buttons
     global mouse_buttons_prev
@@ -25,10 +25,7 @@ def update_input(chat):
     #  record key presses
     for event in pygame.event.get():
         if event.type == pygame.KEYDOWN:
-            if chat and chat.focused:
-                chat.get_input(event.key)
-            else:
-                keypress[event.key] = True
+            keypress[event.key] = True
         elif event.type == pygame.KEYUP:
             keypress[event.key] = False
         elif event.type == pygame.MOUSEBUTTONDOWN:
@@ -41,8 +38,6 @@ def update_input(chat):
 
 def is_key_pressed(key):
     """Returns True if key is currently being pressed."""
-    if key not in SPECIAL_CHARS:
-        key = ord(key.lower())
     return keypress.get(key, False)
 
 

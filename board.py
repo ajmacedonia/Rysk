@@ -66,6 +66,7 @@ RYSK_FRAME_START_GAME = 1
 RYSK_FRAME_ADD_PLAYER = 2
 RYSK_FRAME_TERRITORY_CLICK = 3
 RYSK_FRAME_DICE_ROLL = 4
+RYSK_FRAME_TURN_ORDER = 5
 
 # RYSK game states
 INITIAL_ARMY_PLACEMENT = 0
@@ -131,46 +132,17 @@ class Board:
                                            window[1] // 2))
             player_colors.append(i.get_at((0, 50)))
             self.player_sprites.append(i)
-            print(f"Loaded: {image}")
+
         # load territory objects
         self.territories = {}
         for color, image in TERRITORY.items():
             t = Territory(image.split('_')[0], image, color)
             t.player_colors = player_colors
             self.territories[color] = t
-            print(f"Loaded: {image}")
 
         self.state = None
+        self.state_update = None
         self.stage = 1
-
-    def state_initial_army_placement(self):
-        if self.stage == 1:
-            d = input("Everyone rolls 1 die to determine turn order. Red or white (r/w)?: ")
-            if d == 'r':
-                reds, whites = utilities.roll_dice(1, 0)
-            else:
-                reds, whites = utilities.roll_dice(0, 1)
-            self.local_player.reds, self.local_player.whites = reds, whites
-            self.local_player.f_rolled = True
-
-            if self.f_host:
-                frame = self.send_dice_roll(None, self.local_player.id,
-                                            reds, whites, send=False)
-                self.send_to_all_players(frame, [self.local_player])
-            else:
-                self.send_dice_roll(self.local_player, self.local_player.id,
-                                    reds, whites)
-            self.stage = 2
-
-        if self.stage == 2:
-            for p in self.players:
-                if not p.f_rolled:
-                    return
-            self.stage = 3
-
-        if self.stage == 3:
-            print("Reached stage 3")
-            pass
 
     def get_player_by_id(self, player_id):
         for p in self.players:
@@ -196,6 +168,9 @@ class Board:
         if self.local_player is None and local is True:
             self.local_player = new_player
         self.players.append(new_player)
+
+    def send_chat(self, player):
+        pass
 
     def send_init_game(self, player):
         frame = bytearray(3)
@@ -350,11 +325,12 @@ class Board:
         if self.state is None:
             if self.f_host and is_key_pressed('s'):
                 self.state = INITIAL_ARMY_PLACEMENT
+                self.state_update = self.state_initial_army_placement()
                 f = bytearray(1)
                 f[0] = RYSK_FRAME_START_GAME
                 self.send_to_all_players(f, exceptions=[self.local_player])
         elif self.state == INITIAL_ARMY_PLACEMENT:
-            self.state_initial_army_placement()
+            next(self.state_update)
 
     def draw(self, window):
         # draw background
@@ -376,3 +352,31 @@ class Board:
         for p in self.players:
             if p.sock is not None:
                 p.sock.close()
+
+    def need_dice_roll(self):
+        for p in self.players:
+            if not p.f_rolled:
+                return True
+        return False
+
+    def state_initial_army_placement(self):
+        d = input("Everyone rolls 1 die to determine turn order. Red or white (r/w)?: ")
+        if d == 'r':
+            reds, whites = utilities.roll_dice(1, 0)
+        else:
+            reds, whites = utilities.roll_dice(0, 1)
+        self.local_player.reds, self.local_player.whites = reds, whites
+        self.local_player.f_rolled = True
+
+        if self.f_host:
+            frame = self.send_dice_roll(None, self.local_player.id,
+                                        reds, whites, send=False)
+            self.send_to_all_players(frame, [self.local_player])
+        else:
+            self.send_dice_roll(self.local_player, self.local_player.id,
+                                reds, whites)
+
+        while self.need_dice_roll():
+            yield
+
+        print("Reached stage 2")

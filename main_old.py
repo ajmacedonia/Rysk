@@ -1,5 +1,7 @@
 # built-in modules
 import argparse
+import configparser
+import logging
 
 # external modules
 import pygame
@@ -27,6 +29,15 @@ infantry_count = {
 
 
 def run(run_client=None, run_server=None):
+    # load config
+    config = configparser.ConfigParser(allow_no_value=True)
+    config.read('rysk.conf')
+    print(f"Configuration loaded:")
+    for section in config.sections():
+        print(f"\t{section}")
+        for key in config[section]:
+            print(f"\t\t{key} = {config[section][key]}")
+
     # init window stuff
     pygame.init()
     pygame.display.set_caption('RYSK')
@@ -37,13 +48,18 @@ def run(run_client=None, run_server=None):
     button_host = Button('(H)ost Game')
     button_join = Button('(J)oin Game')
     button_join.x += button_host.width + 10
+    button_chat = Button('(C)hat')
+    name = config['DEFAULT']['name']
+    if name is None or len(name) > 10:
+        while len(name) > 10:
+            name = input("Please enter your name (10 chars max): ")
 
     # init network stuff
     net = Network()
 
     while True:
         # updates (input, network, game loop)
-        update_input(None)
+        update_input()
         net.update(board)
         board.update()
 
@@ -68,6 +84,7 @@ def run(run_client=None, run_server=None):
             pygame.display.set_caption('RYSK (Host)')
             board.f_host = True
             board.add_player(None, True)
+            board.local_player.name = name
             net.listen('localhost', 9923)
 
         # player wants to join a game
@@ -77,7 +94,7 @@ def run(run_client=None, run_server=None):
             sock = net.connect('localhost', utilities.SERVER_PORT, board)
 
         # player wants to chat
-        if is_key_pressed('c'):
+        if is_key_pressed('c') or button_chat.clicked():
             msg = input('Say: ').encode('utf-8')
             net.send(sock, msg)
 
@@ -94,6 +111,11 @@ def run(run_client=None, run_server=None):
 
 
 if __name__ == "__main__":
+    logging.debug('This is a debug message')
+    logging.info('This is an info message')
+    logging.warning('This is a warning message')
+    logging.error('This is an error message')
+    logging.critical('This is a critical message')
     ap = argparse.ArgumentParser(prog="RYSK", description="The World Conquest Game")
     ap.add_argument('-c', '--client', required=False, action='store_true',
                     help="Run as Client")

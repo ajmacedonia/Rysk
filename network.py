@@ -1,17 +1,41 @@
 import socket
-import selectors
 
-import utilities
 
 # app magic
 MAGIC = sum(map(ord, 'RYSK'))
 HEADER_LEN = 2
 
 
+class Socket:
+    def __init__(self, sock=None):
+        self.socket = sock
+        self.recvq = []
+        self.closed = False
+
+    def __str__(self):
+        if self.closed:
+            return "Disconnected"
+        else:
+            return f"Connected to {self.socket.getpeername()}"
+
+    def __eq__(self, other):
+        return self.socket == other.socket
+
+    def recv_bytes(self, data):
+        self.recvq.append(data)
+
+    def has_bytes(self):
+        return len(self.recvq) != 0
+
+    def get_bytes(self):
+        data = self.recvq.pop(0)
+        return data
+
+
 class Network:
     def __init__(self):
-        self.selector = None
         self.listener = None
+        self.sockets = []
 
     def get_header(self, payload_len):
         header = bytearray(MAGIC.to_bytes(2, 'big'))
@@ -21,33 +45,6 @@ class Network:
     def validate_hdr(self, hdr):
         magic = int.from_bytes(hdr, 'big', signed=False)
         return magic == MAGIC
-
-    def update(self, board):
-        """Checks sockets for read/write events."""
-        if self.selector is not None:
-            events = self.selector.select(timeout=0)
-            for key, mask in events:
-                sock = key.fileobj
-                player = key.data
-                if player is None:
-                    # accept a new connection
-                    self._accept(board)
-                    if len(board.players) == utilities.MAX_PLAYERS:
-                        self.selector.unregister(self.listener)
-                else:
-                    # process an existing connection
-                    if mask & selectors.EVENT_READ:
-                        data, f_ready = self.recv(sock)
-                        if data:
-                            player.recv_data(data, f_ready)
-                            print(f"Received {len(data)} bytes from {sock.getpeername()}, "
-                                  f"f_ready_to_read {f_ready}")
-                    if mask & selectors.EVENT_WRITE:
-                        if not player.sendq:
-                            continue
-                        header = self.get_header(len(player.sendq))
-                        sent = self.send(sock, header+player.sendq)
-                        player.sendq = player.sendq[sent:]
 
     def send(self, s, data):
         """Sends all data on a given socket."""
@@ -79,14 +76,13 @@ class Network:
                 pass
         return data, True
 
-    def _accept(self, board):
+    def accept(self, board):
         """Accepts a new incoming connection."""
         s, addr = self.listener.accept()
-        s.setblocking(False)
-        print(f"{addr} has connected")
-        board.add_player(None, False, sock=s)
-        self.selector.register(s, selectors.EVENT_READ | selectors.EVENT_WRITE,
-                               data=board.players[-1])
+        if s is not None:
+            s.setblocking(False)
+            print(f"{addr} has connected")
+            board.add_player(None, False, sock=s)
 
         return s
 
@@ -96,9 +92,6 @@ class Network:
         s.connect((ip, port))
         s.setblocking(False)
         board.add_player(None, True, sock=s)
-        self.selector = selectors.DefaultSelector()
-        self.selector.register(s, selectors.EVENT_READ | selectors.EVENT_WRITE,
-                               data=board.players[-1])
         print(f"Connected to {s.getpeername()}")
         return s
 
@@ -107,15 +100,24 @@ class Network:
         if self.listener is not None:
             return
 
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.bind((ip, port))
-        s.setblocking(False)
-        s.listen()
-        self.selector = selectors.DefaultSelector()
-        self.selector.register(s, selectors.EVENT_READ)
-        self.listener = s
+        self.listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.listener.bind((ip, port))
+        self.listener.setblocking(False)
+        self.listener.listen()
         print(f"Listening on {ip}:{port}")
 
     def shutdown(self):
         if self.listener is not None:
             self.listener.close()
+            self.listener = None
+
+    def update(self, board):
+        """Checks sockets for read/write events."""
+        if self.listener is not None:
+            self.accept()
+
+        for s in self.sockets:
+            s.recv_data()
+
+        for s in self.sockets:
+            s.send_data()

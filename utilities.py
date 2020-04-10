@@ -5,10 +5,11 @@ import pygame
 
 # Game stuff
 MAX_PLAYERS = 4
+PLAYER_NAME_LEN_MAX = 16
 
 # Misc
 WINDOW = (1280, 960)
-SERVER_PORT = 9923
+ADDR = ("localhost", 8080)
 
 # Filesystem
 BASE_DIR = os.path.split(os.path.abspath(__file__))[0]
@@ -25,11 +26,20 @@ GREEN = (75, 200, 75)
 LIGHT_GREEN = (0, 255, 0)
 BLUE = (0, 0, 200)
 LIGHT_BLUE = (0, 0, 255)
+CYAN = (0, 255, 255)
 YELLOW = (200, 200, 0)
 LIGHT_YELLOW = (255, 255, 0)
 
-# Keys
-K_escape = '\x1b'
+# ANSI escape codes
+ANSI_BLACK = '\u001b[30m'
+ANSI_RED = '\u001b[31m'
+ANSI_GREEN = '\u001b[32m'
+ANSI_YELLOW = '\u001b[33m'
+ANSI_BLUE = '\u001b[34m'
+ANSI_MAGENTA = '\u001b[35m'
+ANSI_CYAN = '\u001b[36m'
+ANSI_WHITE = '\u001b[37m'
+ANSI_RESET = '\u001b[0m'
 
 
 # =================
